@@ -94,6 +94,8 @@ input, select, textarea { font-family: inherit; }
   margin-bottom: 6px;
 }
 .sidebar-logo-title { font-size: 13.5px; font-weight: 700; color: #f1f5f9; line-height: 1.3; }
+.sidebar-logo-title a { color: inherit; text-decoration: none; }
+.sidebar-logo-title a:hover { color: #fff; }
 .sidebar-logo-sub { font-size: 11px; color: var(--sidebar-text); margin-top: 2px; }
 
 .sidebar-nav { padding: 8px 0 20px; flex: 1; }
