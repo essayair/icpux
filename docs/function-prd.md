@@ -1,4 +1,5 @@
 产品文档\-功能特性
+icp == Industry Cloud Platform
 
 萤石产业链平台 · 应用功能层
 
