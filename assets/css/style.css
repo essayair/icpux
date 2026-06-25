@@ -120,6 +120,12 @@ input, select, textarea { font-family: inherit; }
   letter-spacing: .01em;
 }
 .nav-group-label .ni { font-size: 14px; width: 16px; text-align: center; }
+.nav-group-label--link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: color .12s;
+}
+.nav-group-label--link:hover { color: #e2e8f0; }
 
 .nav-item {
   display: flex;

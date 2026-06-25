@@ -15,8 +15,7 @@
     <div class="sidebar-logo-sub">运营管理后台 · 内部版</div>
   </div>
   <nav class="sidebar-nav">
-    <a href="../index.html" class="nav-item-top"><span class="ni">◻</span>系统总览</a>
-    <div class="sidebar-section">业务模块</div>
+    <a href="../index.html" class="nav-group-label nav-group-label--link"><span class="ni">◻</span>系统总览</a>
     <div class="nav-group">
       <div class="nav-group-label"><span class="ni">📋</span>采销系统</div>
       <a href="../caixiao/index.html" class="nav-item">合同管理</a>
@@ -27,6 +26,7 @@
       <div class="nav-group-label"><span class="ni">🚛</span>物流管理</div>
       <a href="dispatch.html" class="nav-item">调度看板</a>
       <a href="index.html" class="nav-item active">运单管理</a>
+      <a href="reconciliation.html" class="nav-item">物流对账</a>
     </div>
     <div class="nav-group">
       <div class="nav-group-label"><span class="ni">📦</span>库存管理</div>
@@ -198,60 +198,86 @@
       <div class="card mb-4">
         <div class="card-hd"><span class="card-title">承运商与车辆</span></div>
         <div class="card-body">
-          <div class="form-grid fg3">
-            <div class="form-item">
-              <label class="form-label req">承运商</label>
-              <select class="form-ctrl" id="carrier" onchange="updateCarrierRate()">
-                <option value="">请选择承运商…</option>
-                <option value="yl" data-rate="25">玉门良运物流（¥25/吨）</option>
-                <option value="jc" data-rate="28">金昌运通（¥28/吨·近途另议）</option>
-                <option value="at" data-rate="25">安泰货运（¥25/吨）</option>
-                <option value="xb" data-rate="130">西北货运联盟（¥130/吨·长途）</option>
-              </select>
-            </div>
-            <div class="form-item">
-              <label class="form-label req">车牌号</label>
-              <select class="form-ctrl">
-                <option value="">请选择车辆…</option>
-                <option>甘A·12345（安泰货运）</option>
-                <option>甘B·66789（玉门良运）</option>
-                <option>甘B·88890（玉门良运）</option>
-                <option>甘A·55678（金昌运通）</option>
-                <option>陇A·33456（西北货运联盟）</option>
-              </select>
-            </div>
-            <div class="form-item">
-              <label class="form-label">司机姓名</label>
-              <input class="form-ctrl" type="text" placeholder="自动带出，可修改" id="driver">
-            </div>
-            <div class="form-item">
-              <label class="form-label">司机电话</label>
-              <input class="form-ctrl" type="text" placeholder="自动带出，可修改" id="driver-phone">
-            </div>
-            <div class="form-item">
-              <label class="form-label req">运价口径</label>
-              <select class="form-ctrl">
-                <option>按吨（¥/吨）</option>
-                <option>按车次（¥/车）</option>
-                <option>按吨公里（¥/吨·km）</option>
-              </select>
-            </div>
-            <div class="form-item">
-              <label class="form-label req">费用承担方</label>
-              <select class="form-ctrl">
-                <option>我方承担（计入采购成本）</option>
-                <option>对手方承担（供应商/客户承担）</option>
-                <option>双方各半</option>
-              </select>
-            </div>
-            <div class="form-item">
-              <label class="form-label">预计运费</label>
-              <input class="form-ctrl" type="text" placeholder="系统自动计算" id="freight" readonly style="background:var(--surface-2)">
+          <div class="form-section">
+            <div class="form-section-title">承运商信息</div>
+            <div class="form-grid fg3">
+              <div class="form-item">
+                <label class="form-label req">承运商</label>
+                <select class="form-ctrl" id="carrier">
+                  <option value="">请选择承运商…</option>
+                  <option value="yl">玉门良运物流</option>
+                  <option value="jc">金昌运通</option>
+                  <option value="at">安泰货运</option>
+                  <option value="xb">西北货运联盟</option>
+                </select>
+              </div>
+              <div class="form-item">
+                <label class="form-label req">车牌号</label>
+                <select class="form-ctrl">
+                  <option value="">请选择车辆…</option>
+                  <option>甘A·12345（安泰货运）</option>
+                  <option>甘B·66789（玉门良运）</option>
+                  <option>甘B·88890（玉门良运）</option>
+                  <option>甘A·55678（金昌运通）</option>
+                  <option>陇A·33456（西北货运联盟）</option>
+                </select>
+              </div>
+              <div class="form-item">
+                <label class="form-label">司机姓名</label>
+                <input class="form-ctrl" type="text" placeholder="自动带出，可修改" id="driver">
+              </div>
+              <div class="form-item">
+                <label class="form-label">司机电话</label>
+                <input class="form-ctrl" type="text" placeholder="自动带出，可修改" id="driver-phone">
+              </div>
             </div>
           </div>
-          <div class="alert alert-info mt-3">
-            <span>ℹ</span>
-            <div class="text-sm">【待现状确认】运费结算口径（按车次/按吨/按吨公里）需业务核实后统一配置。</div>
+
+          <div class="form-section">
+            <div class="form-section-title">运费信息</div>
+            <div class="form-grid fg3">
+              <div class="form-item">
+                <label class="form-label req">运费承担方</label>
+                <select class="form-ctrl" id="freight-payer" onchange="toggleFreightPayer()">
+                  <option value="self">我方承担</option>
+                  <option value="supplier">供应商承担</option>
+                </select>
+              </div>
+              <div class="form-item">
+                <label class="form-label req">吨单价</label>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <input class="form-ctrl" type="number" id="unit-price" step="0.01" min="0"
+                    placeholder="输入运价" oninput="calcFreight()">
+                  <span class="text-muted" style="white-space:nowrap">元/吨</span>
+                </div>
+              </div>
+              <div class="form-item">
+                <label class="form-label req">结算依据</label>
+                <select class="form-ctrl" id="settlement-basis" onchange="onBasisChange()">
+                  <option value="min">按最小值（默认）</option>
+                  <option value="own">按我方磅单</option>
+                  <option value="supplier">按发货磅单</option>
+                  <option value="fixed">按协议固定值</option>
+                </select>
+              </div>
+              <div class="form-item" id="fixed-weight-row" style="display:none">
+                <label class="form-label req">协议固定值</label>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <input class="form-ctrl" type="number" id="fixed-weight" step="0.01" min="0"
+                    placeholder="固定吨数" oninput="calcFreight()">
+                  <span class="text-muted">吨</span>
+                </div>
+              </div>
+              <div class="form-item">
+                <label class="form-label">总运费（自动计算）</label>
+                <input class="form-ctrl" type="text" id="total-freight" readonly
+                  style="background:var(--surface-2)" placeholder="关联磅单后自动计算">
+              </div>
+            </div>
+            <div id="supplier-payer-tip" class="alert alert-info mt-3" style="display:none">
+              <span>ℹ</span>
+              <div class="text-sm">运费承担方为<strong>供应商承担</strong>，吨单价与总运费无需填写，字段已置灰。</div>
+            </div>
           </div>
         </div>
       </div>
@@ -303,7 +329,47 @@
 </div>
 
 <script>
-/* 订单 → 合作伙伴 映射数据（生产环境从主数据接口获取） */
+/* ── 运费字段联动 ──────────────────────────────────── */
+function toggleFreightPayer() {
+  const isSup = document.getElementById('freight-payer').value === 'supplier';
+  const unitPriceEl = document.getElementById('unit-price');
+  const totalEl     = document.getElementById('total-freight');
+  const tip         = document.getElementById('supplier-payer-tip');
+  unitPriceEl.disabled = isSup;
+  unitPriceEl.style.background = isSup ? 'var(--surface-2)' : '';
+  unitPriceEl.style.color      = isSup ? 'var(--text-3)' : '';
+  totalEl.placeholder = isSup ? '供应商承担，无需填写' : '关联磅单后自动计算';
+  if (isSup) totalEl.value = '';
+  tip.style.display = isSup ? 'flex' : 'none';
+  calcFreight();
+}
+
+function onBasisChange() {
+  const basis = document.getElementById('settlement-basis').value;
+  document.getElementById('fixed-weight-row').style.display = basis === 'fixed' ? '' : 'none';
+  calcFreight();
+}
+
+function calcFreight() {
+  const isSup   = document.getElementById('freight-payer').value === 'supplier';
+  const totalEl = document.getElementById('total-freight');
+  if (isSup) { totalEl.value = ''; return; }
+  const unitPrice = parseFloat(document.getElementById('unit-price').value) || 0;
+  const basis     = document.getElementById('settlement-basis').value;
+  if (basis === 'fixed') {
+    const fixedWt = parseFloat(document.getElementById('fixed-weight').value) || 0;
+    if (unitPrice && fixedWt) {
+      totalEl.value = '¥' + (unitPrice * fixedWt).toFixed(2);
+    } else {
+      totalEl.value = '';
+    }
+  } else {
+    totalEl.placeholder = unitPrice ? '关联磅单后自动计算（¥' + unitPrice.toFixed(2) + '/吨）' : '关联磅单后自动计算';
+    totalEl.value = '';
+  }
+}
+
+/* ── 订单 → 合作伙伴 映射数据（生产环境从主数据接口获取） */
 const orderMap = {
   'PO-20260601-001': {
     direction: 'in',
@@ -425,14 +491,6 @@ function submitWaybill() {
   }
 }
 
-function updateCarrierRate() {
-  const sel = document.getElementById('carrier');
-  const opt = sel.options[sel.selectedIndex];
-  const rate = opt.dataset.rate;
-  if (rate) {
-    document.getElementById('freight').placeholder = `运价 ¥${rate}/吨，填入数量后自动计算`;
-  }
-}
 </script>
 </body>
 </html>
