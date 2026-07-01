@@ -199,6 +199,11 @@ tRPC 在前后端均为 TypeScript 时价值最大，但当后端是独立 NestJ
 
 **PostgreSQL 15+ 作为主数据库，Redis 作为缓存/消息层。**
 
+**生产环境：阿里云 RDS PostgreSQL + 阿里云 Redis**
+**开发环境：本地 Docker PostgreSQL 或 Supabase**
+
+> 选型说明：数据库引擎决策基于下面 4.2 的特性对比，与托管平台无关。阿里云 RDS PostgreSQL 提供与自建 PostgreSQL 完全兼容的协议，开发阶段可以使用 Supabase 加速开发，生产切换到阿里云 RDS，ORM 层（Prisma）无需改动。
+
 ### 4.2 为何选择 PostgreSQL
 
 | 特性 | PostgreSQL | MySQL | 对本项目的意义 |
@@ -338,12 +343,9 @@ interface PaginatedResponse<T> {
 
 ### 6.1 决策
 
-**方式 A（推荐——AI 友好）：Supabase Auth**
-集成 Supabase 内置认证系统，邮箱密码登录 + OAuth 扩展。无需自建 Token 签发、刷新、存储逻辑，直接调用 `supabase.auth` SDK 即可。
+**JWT + RBAC（角色权限） + 数据权限（部门组维度），预留 SSO/OAuth2 扩展点。**
 
-**方式 B（传统方案）：JWT + RBAC + 数据权限（部门组维度），预留 SSO/OAuth2 扩展点。**
-
-> **一期建议采用方式 A**，降低认证模块的自研成本，且与数据库（Supabase PostgreSQL）无缝集成。
+> 开发阶段可借助 Supabase Auth 快速搭建，生产环境切换为自建 JWT 方案（Passport 策略），确保认证逻辑完全可控，不受第三方服务可用性影响。两种方案均可与阿里云部署集成。
 
 ### 6.2 认证流程
 
@@ -384,15 +386,27 @@ interface Permission {
 - 查询时自动注入 `WHERE department_group_id = :currentUserDeptGroupId`
 - 二期使用 PostgreSQL Row-Level Security 在数据库层加固
 
+### 4.5 生产环境数据库确认（阿里云 RDS）
+
+| 维度 | 方案 |
+|------|------|
+| 数据库引擎 | PostgreSQL 15+ |
+| 生产托管 | 阿里云 RDS PostgreSQL |
+| 开发托管 | Supabase 或本地 Docker |
+| 缓存 | 阿里云 Redis（或本地 Redis）|
+| 存储过程/触发器 | 不用，逻辑统一在代码层 |
+| 迁移管理 | Prisma migrate，禁止手动 DDL |
+| 备份 | 阿里云 RDS 自动备份 |
+
+> **开发→生产切换方式**：Prisma 连接字符串（DATABASE_URL）从 Supabase URL 替换为阿里云 RDS URL 即可，代码和 Schema 零改动。
+
 ---
 
 ## 七、文件与媒体存储
 
 ### 7.1 决策
 
-**首推 Supabase Storage（AI 友好，与 Supabase 同平台），备选自建 MinIO（S3 兼容）或阿里云 OSS（国内生产）。**
-
-> Supabase Storage 的优势：与认证系统（Supabase Auth）共用权限体系（RLS），API 与 S3 兼容，无需额外部署独立文件服务。
+**阿里云 OSS 作为主存储（生产环境），MinIO 用于本地开发。**
 
 ### 7.2 存储策略
 
@@ -419,9 +433,9 @@ interface Permission {
 
 ### 8.1 决策
 
-**短轮询（工作台数据） + WebSocket/Socket.IO（预警推送、GPS 位置），或采用 Supabase Realtime 订阅。**
+**短轮询（工作台数据） + Socket.IO + Redis Adapter（预警推送、GPS 位置）。**
 
-> **Supabase Realtime** 方案：利用 PostgreSQL 的 `LISTEN/NOTIFY` 机制 + WebSocket，与数据库同栈，无需额外部署 Redis/Socket.IO 服务。适合 MVP 阶段的实时需求。
+> 基于阿里云 Redis 部署 Socket.IO Adapter 实现多实例推送，不依赖第三方实时服务平台。开发阶段可用本地 Redis 替代。
 
 ### 8.2 功能清单
 
@@ -634,11 +648,17 @@ if (合同类型 === '采购' && 金额 > 100万) {
 
 ### 13.1 决策
 
-**开发/测试：Docker Compose 或 Supabase Local Dev；生产：Vercel（一键部署 Next.js + AI 功能）或传统云服务器。**
+**阿里云全栈部署（生产），Docker Compose 用于本地开发。**
 
-> **Vercel 方案**适合 AI 功能密集的项目：与 Next.js 原厂集成、自动 SSL/域名、Serverless 按量付费、Edge Functions 支持低延迟 AI 响应。但需确认国内访问稳定性。
->
-> 国内生产环境备选：阿里云 ECS + RDS PostgreSQL + OSS + Redis。
+| 服务 | 阿里云产品 |
+|------|-----------|
+| 应用服务器 | 阿里云 ECS（一台起步）或 SAE（Serverless） |
+| 数据库 | 阿里云 RDS PostgreSQL |
+| 缓存/队列 | 阿里云 Redis |
+| 文件存储 | 阿里云 OSS |
+| CDN / 证书 | 阿里云 CDN + SSL 证书 |
+| 域名 | 阿里云 DNS / 万网 |
+| CI/CD | GitHub Actions → 部署到 ECS
 
 ### 13.2 Docker Compose 编排
 
@@ -843,16 +863,16 @@ jiayiicp/
 | **架构分层** | 业务层（模块驱动）+ AI 层（只读） | AI 仅用于查询/分析/报告，不介入业务流程和数据写入 |
 | **后端框架** | NestJS + TypeScript | 前后端统一 TS，DI/IoC 企业模式，AI 辅助开发友好 |
 | **ORM** | Prisma | 类型安全，自动迁移，Studio 可视化，复杂关联查询直观 |
-| **数据库** | PostgreSQL 15+（推荐 Supabase 托管） | 强 ACID，JSONB，RLS；Supabase 一站式省去运维 |
+| **数据库** | PostgreSQL 15+（生产：阿里云 RDS，开发：Docker/Supabase） | 强 ACID，JSONB，RLS；阿里云 RDS 免运维，Prisma 连接串切换零改动 |
 | **缓存/队列** | Redis + BullMQ | 会话管理，消息队列，后台任务调度 |
 | **前端框架** | Next.js 14+ (App Router) | 嵌套布局匹配后台系统，RSC 减少客户端体积 |
 | **UI 库** | shadcn/ui + Tailwind CSS | AI 生成质量最高，组件可直接修改，不锁定版本 |
 | **API 风格** | REST + OpenAPI 3.0 | 语言无关，Swagger 自动文档，未来合作伙伴 API 兼容 |
-| **认证授权** | Supabase Auth（推荐）或 JWT + RBAC | Supabase Auth 开箱即用，与数据库同平台 |
-| **文件存储** | Supabase Storage（推荐）或 MinIO/OSS | 与认证共用权限体系，无需独立部署文件服务 |
-| **实时通信** | Socket.IO + Redis Adapter 或 Supabase Realtime | GPS 推送、预警通知、工作台刷新 |
+| **认证授权** | JWT + RBAC（生产）；Supabase Auth（开发加速） | 开发用 Supabase 快速搭，生产切换自建 JWT 保证可控 |
+| **文件存储** | 阿里云 OSS（生产）；MinIO（本地开发） | 国内主流对象存储，与 ECS 内网互通，成本低 |
+| **实时通信** | Socket.IO + Redis Adapter（生产：阿里云 Redis） | GPS 推送、预警通知、工作台刷新；不依赖第三方实时平台 |
 | **状态机** | 后端代码状态转换表（强约束） | 轻量可控，可审计；不自研通用 BPM |
-| **部署** | Vercel（AI 友好）或传统云服务器 | Vercel 与 Next.js 原生集成；国内环境备选阿里云 |
+| **部署** | 阿里云 ECS + RDS + OSS + Redis（生产）；Docker Compose（本地开发） | 阿里云一站式国内部署，与 Next.js/NestJS 均可集成 |
 | **项目结构** | pnpm Monorepo | 前后端同仓库，共享类型，AI 可获取完整上下文 |
 | **移动端（二期）** | Taro/Uni-app + 企业微信 H5 | 微信生态兼容，跨端复用 |
 
