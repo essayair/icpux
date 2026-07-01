@@ -1,6 +1,6 @@
 # 产业链运营管理系统 — 技术架构设计
 
-> 版本：v1.0 | 日期：2026-06-16 | 基于 PRD：fuctionPrd.docx
+> 版本：v1.1 | 日期：2026-07-01 | 基于 PRD：fuctionPrd.docx
 >
 > 本文档定义系统的整体技术架构、技术选型、模块划分与分阶段交付计划，作为后续开发的纲领性参考。
 
@@ -9,8 +9,11 @@
 ## 目录
 
 1. [整体架构模式](#一整体架构模式)
+   - [1.4 架构分层原则（AI 介入边界）](#14-架构分层原则ai-介入边界)
 2. [后端技术栈](#二后端技术栈)
 3. [前端技术栈](#三前端技术栈)
+   - [3.4 为何不采用 Ant Design 5](#34-为何不采用-ant-design-5)
+   - [3.5 为何不采用 tRPC](#35-为何不采用-trpc)
 4. [数据库设计](#四数据库设计)
 5. [API 设计规范](#五api-设计规范)
 6. [认证与授权](#六认证与授权)
@@ -32,6 +35,8 @@
 ### 1.1 决策
 
 **模块化单体（Modular Monolith），以 DDD 有界上下文划分模块边界，预留未来微服务拆分能力。**
+
+> **注意：Modular Monolith（架构模式）与 Monorepo（仓库组织方式）是两个不同层面的概念。Modular Monolith 管"代码怎么写"，Monorepo 管"代码放哪"。本项目两者同时采用。**
 
 ### 1.2 选型理由
 
@@ -85,6 +90,23 @@ modules/contract/
 - **异步：** 领域事件总线（EventEmitter 模式），用于跨模块联动（如：合同生效 → 通知物流 → 生成运输任务）
 - **严格禁止：** 跨模块直接访问对方 Repository 或数据库表
 
+### 1.4 架构分层原则（AI 介入边界）
+
+系统分两层，AI 仅在数据层（只读）工作：
+
+```
+业务层（无 AI）          AI 层（只读）
+─────────────           ────────────
+交易管理                 数据查询
+合同流转                 报表生成
+结算登记                 趋势分析
+权限控制                 信息提取
+```
+
+- **业务层**：标准模块驱动的运营管理，AI 不介入任何业务流程和数据写入
+- **AI 层**：只读数据消费，仅用于查询、分析、报告生成，不触碰业务逻辑
+- **核心约束**：所有 AI 功能只能读取数据，严禁通过 AI 触发任何数据写入或状态变更。涉及钱、合同、对外动作的，必须人来确认
+
 ---
 
 ## 二、后端技术栈
@@ -137,29 +159,35 @@ modules/contract/
 
 ### 3.1 决策
 
-**Next.js 14+ (App Router) + Ant Design 5 + TanStack Query (React Query)**
+**Next.js 14+ (App Router) + shadcn/ui + Tailwind CSS**
 
 ### 3.2 选型理由
 
 1. **Nested Layouts 天然匹配后台系统：** 顶部导航 → 侧边栏 → 内容区 → 面包屑 → 数据表格 → 弹窗表单，用 App Router 的 `layout.js` 实现清晰且可复用
 2. **React Server Components（RSC）：** 列表页等数据密集场景，服务端获取数据并渲染，减少客户端 JS 体积
-3. **Ant Design 5** 是国内企业后台事实标准，ProTable/ProForm/ProLayout 大幅提效
-4. **TanStack Query** 作为服务端状态管理，处理缓存/失效/乐观更新，避免手写 useEffect + useState
+3. **shadcn/ui** 是 AI 友好度最高的 UI 库：组件代码可直接复制、不锁定版本、与 Tailwind CSS 原生搭配，Claude/Cursor 等 AI 工具生成 shadcn 代码的质量和一致性最高
+4. **Tailwind CSS** 是 AI 生成样式的事实标准，AI 写 Tailwind 的准确率远超传统 CSS
 
 ### 3.3 核心技术选型
 
 | 层次 | 技术 | 说明 |
 |------|------|------|
 | **框架** | Next.js 14+ (App Router) | Server Component 为默认，按需 `'use client'` |
-| **UI 库** | Ant Design 5.x | ProTable/ProForm/ProLayout 开箱即用 |
-| **状态管理** | TanStack Query (React Query) | 服务端状态，缓存/失效/乐观更新 |
-| **表单** | Ant Design Form + React Hook Form | 复杂业务表单（合同录入有 50+ 字段） |
-| **图表** | @ant-design/charts (G2Plot) | 工作台可视化 |
+| **UI 库** | shadcn/ui | 可复制组件，AI 熟悉度最高，不锁定版本 |
+| **样式** | Tailwind CSS | AI 生成质量最高，与 shadcn 原生配套 |
+| **表单** | React Hook Form + Zod | 类型安全表单校验，与 shadcn 原生支持 |
+| **图表** | Recharts 或 Lucide | 轻量，AI 生成质量高 |
 | **路由** | Next.js App Router | 文件系统路由 + 路由组 `(dashboard)` |
-| **样式** | Ant Design 内置 token 定制 | 优先使用 Ant Design 主题系统 |
-| **HTTP 客户端** | 自定义 fetch 封装 + React Query | 统一错误处理、Token 注入 |
+| **HTTP 客户端** | 自定义 fetch 封装 | 统一错误处理、Token 注入 |
 
-### 3.4 为何不采用 tRPC
+### 3.4 为何不采用 Ant Design 5
+
+Ant Design 5 是国内 B 端事实标准，ProTable/ProForm 开箱即用。但本项目以 AI 友好为第一优先：
+- AI 生成 shadcn/ui 代码的质量显著高于 Ant Design（Ant Design 依赖特定版本 API，AI 容易生成过时或错误代码）
+- shadcn/ui 组件代码直接进项目（src/components/ui/），可手动任意修改，不依赖第三方版本锁定
+- Ant Design 的主题定制和 Tree Shaking 配置在 vibe coding 流程中增加不必要的复杂度
+
+### 3.5 为何不采用 tRPC
 
 tRPC 在前后端均为 TypeScript 时价值最大，但当后端是独立 NestJS 服务时，需要额外桥接层，增加复杂度。**采用 REST + OpenAPI 规范**：NestJS Swagger 模块自动生成 API 文档，在接口数量快速增长时（预估 150+），文档自动维护更可靠。未来如需端到端类型安全，可考虑 `ts-rest` 方案。
 
@@ -232,6 +260,26 @@ ZJ(质检) / DB(地磅) / JS(结算) / FP(发票) / FK(付款)
 
 ---
 
+### 4.4 数据库管理边界（开发铁律）
+
+数据库（PostgreSQL）是与应用平级的独立服务，不是后端的子集。
+
+| 事项 | 归属 | 说明 |
+|---|---|---|
+| 表/字段结构定义 | **代码（Prisma）** | `schema.prisma` 是结构的唯一真相，进 git |
+| 结构变更（建表/改字段） | **代码迁移** | 一律走 `prisma migrate`，生成 DDL 交库执行 |
+| 数据增删改查 | **代码（Prisma Client）** | 收口到各模块 Repository 层 |
+| 事务、并发、存储 | **数据库引擎** | PostgreSQL 自身负责 |
+| 实例启停、备份、扩容 | **运维/部署层** | 属基础设施项，非代码职责 |
+
+**两条铁律：**
+1. **禁止手动 DDL**——生产环境严禁人手连库改表/改结构。结构真相在 `schema.prisma`，手改会导致代码与库不一致、下次迁移冲突。结构变更只走 Prisma migrate。
+2. **数据访问收口 Repository**——禁止跨模块直接访问对方表，所有库操作经本模块 Repository 层，与 DDD 跨上下文隔离一致。
+
+> 开发/测试阶段可用 Prisma Studio 可视化查看数据；但**结构变更永远走代码迁移**，不在 Studio 或客户端手改表结构。
+
+---
+
 ## 五、API 设计规范
 
 ### 5.1 URL 命名
@@ -290,7 +338,12 @@ interface PaginatedResponse<T> {
 
 ### 6.1 决策
 
-**JWT + RBAC（角色权限） + 数据权限（部门组维度），预留 SSO/OAuth2 扩展点。**
+**方式 A（推荐——AI 友好）：Supabase Auth**
+集成 Supabase 内置认证系统，邮箱密码登录 + OAuth 扩展。无需自建 Token 签发、刷新、存储逻辑，直接调用 `supabase.auth` SDK 即可。
+
+**方式 B（传统方案）：JWT + RBAC + 数据权限（部门组维度），预留 SSO/OAuth2 扩展点。**
+
+> **一期建议采用方式 A**，降低认证模块的自研成本，且与数据库（Supabase PostgreSQL）无缝集成。
 
 ### 6.2 认证流程
 
@@ -337,7 +390,9 @@ interface Permission {
 
 ### 7.1 决策
 
-**MinIO（自建 S3 兼容存储）作为主存储，阿里云 OSS 作为国内生产环境替代。**
+**首推 Supabase Storage（AI 友好，与 Supabase 同平台），备选自建 MinIO（S3 兼容）或阿里云 OSS（国内生产）。**
+
+> Supabase Storage 的优势：与认证系统（Supabase Auth）共用权限体系（RLS），API 与 S3 兼容，无需额外部署独立文件服务。
 
 ### 7.2 存储策略
 
@@ -364,7 +419,9 @@ interface Permission {
 
 ### 8.1 决策
 
-**短轮询（工作台数据） + WebSocket/Socket.IO（预警推送、GPS 位置）**
+**短轮询（工作台数据） + WebSocket/Socket.IO（预警推送、GPS 位置），或采用 Supabase Realtime 订阅。**
+
+> **Supabase Realtime** 方案：利用 PostgreSQL 的 `LISTEN/NOTIFY` 机制 + WebSocket，与数据库同栈，无需额外部署 Redis/Socket.IO 服务。适合 MVP 阶段的实时需求。
 
 ### 8.2 功能清单
 
@@ -460,6 +517,25 @@ const CONTRACT_TRANSITIONS: StateTransition[] = [
 | 发票 | 待开具 → 已开具 → 已认证 |
 
 ---
+
+### 9.5 审批流程：不自研通用 BPM
+
+**核心原则：一期只做写死的单一审批流程，不自研通用 BPM 引擎。**
+
+自研通用 BPM 意味着要开发：可视化流程设计器、条件分支引擎（如"金额>100万走总经理"）、动态节点配置、流程版本管理、会签/或签/并行审批。**本质上是在再造一个轻量版钉钉审批系统**，其工作量远超核心业务功能本身。
+
+一期做法——代码里写死审批链：
+
+```typescript
+// 示例：十几行代码完成
+if (合同类型 === '采购' && 金额 > 100万) {
+  审批链 = [业务主管, 风控经理, 总经理]
+} else {
+  审批链 = [业务主管, 风控经理]
+}
+```
+
+**何时开始评估通用方案：** 当业务中出现超过 10 种不同审批规则，或每天都有新审批流程变更需求时，再评估挂载成熟工作流引擎（如 Flowable REST 或 Node 工作流库）。
 
 ## 十、集成点设计
 
@@ -558,7 +634,11 @@ const CONTRACT_TRANSITIONS: StateTransition[] = [
 
 ### 13.1 决策
 
-**Docker Compose（开发/测试） + 云服务器（生产），支持国产化服务器。**
+**开发/测试：Docker Compose 或 Supabase Local Dev；生产：Vercel（一键部署 Next.js + AI 功能）或传统云服务器。**
+
+> **Vercel 方案**适合 AI 功能密集的项目：与 Next.js 原厂集成、自动 SSL/域名、Serverless 按量付费、Edge Functions 支持低延迟 AI 响应。但需确认国内访问稳定性。
+>
+> 国内生产环境备选：阿里云 ECS + RDS PostgreSQL + OSS + Redis。
 
 ### 13.2 Docker Compose 编排
 
@@ -760,18 +840,19 @@ jiayiicp/
 | 决策领域 | 选择 | 核心理由 |
 |---------|------|---------|
 | **架构模式** | 模块化单体 (Modular Monolith) | 小团队快速迭代，单 DB 事务保证一致性，预留微服务拆分 |
+| **架构分层** | 业务层（模块驱动）+ AI 层（只读） | AI 仅用于查询/分析/报告，不介入业务流程和数据写入 |
 | **后端框架** | NestJS + TypeScript | 前后端统一 TS，DI/IoC 企业模式，AI 辅助开发友好 |
 | **ORM** | Prisma | 类型安全，自动迁移，Studio 可视化，复杂关联查询直观 |
-| **数据库** | PostgreSQL 15+ | 强 ACID 事务，JSONB 灵活扩展，PostGIS/物化视图/RLS |
+| **数据库** | PostgreSQL 15+（推荐 Supabase 托管） | 强 ACID，JSONB，RLS；Supabase 一站式省去运维 |
 | **缓存/队列** | Redis + BullMQ | 会话管理，消息队列，后台任务调度 |
 | **前端框架** | Next.js 14+ (App Router) | 嵌套布局匹配后台系统，RSC 减少客户端体积 |
-| **UI 库** | Ant Design 5 | 国内企业后台事实标准，ProComponents 开箱即用 |
+| **UI 库** | shadcn/ui + Tailwind CSS | AI 生成质量最高，组件可直接修改，不锁定版本 |
 | **API 风格** | REST + OpenAPI 3.0 | 语言无关，Swagger 自动文档，未来合作伙伴 API 兼容 |
-| **认证授权** | JWT + RBAC + 部门组数据权限 | 轻量满足一期需求，预留 SSO |
-| **文件存储** | MinIO (S3 兼容) | 自建成本低，S3 兼容可平滑迁移到云 OSS |
-| **实时通信** | Socket.IO + Redis Adapter | GPS 推送、预警通知、工作台刷新 |
-| **状态机** | 后端代码状态转换表 | 轻量可控，强约束，可审计 |
-| **部署** | Docker Compose (开发) + 云服务器 (生产) | 简单可靠，国内云生态适配 |
+| **认证授权** | Supabase Auth（推荐）或 JWT + RBAC | Supabase Auth 开箱即用，与数据库同平台 |
+| **文件存储** | Supabase Storage（推荐）或 MinIO/OSS | 与认证共用权限体系，无需独立部署文件服务 |
+| **实时通信** | Socket.IO + Redis Adapter 或 Supabase Realtime | GPS 推送、预警通知、工作台刷新 |
+| **状态机** | 后端代码状态转换表（强约束） | 轻量可控，可审计；不自研通用 BPM |
+| **部署** | Vercel（AI 友好）或传统云服务器 | Vercel 与 Next.js 原生集成；国内环境备选阿里云 |
 | **项目结构** | pnpm Monorepo | 前后端同仓库，共享类型，AI 可获取完整上下文 |
 | **移动端（二期）** | Taro/Uni-app + 企业微信 H5 | 微信生态兼容，跨端复用 |
 

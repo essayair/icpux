@@ -83,11 +83,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 当前原型之后，生产系统规划为：
 
-- **架构**：模块化单体（NestJS + Next.js pnpm monorepo），DDD 有界上下文划分
-- **后端**：NestJS + TypeScript + Prisma + PostgreSQL 15+ + Redis + BullMQ
-- **前端**：Next.js 14+ (App Router) + Ant Design 5 + TanStack Query
-- **存储**：MinIO (S3 兼容)，生产环境可选阿里云 OSS
-- **部署**：Docker Compose（开发）→ 云服务器（生产），GitHub Actions CI/CD
+- **架构**：模块化单体（NestJS + Next.js pnpm monorepo），DDD 有界上下文划分；**业务层与 AI 层分离，AI 仅用于只读数据消费**
+- **后端**：NestJS + TypeScript + Prisma + Supabase (PostgreSQL) + Redis + BullMQ
+- **前端**：Next.js 14+ (App Router) + **shadcn/ui + Tailwind CSS**
+- **认证**：Supabase Auth（一期）或 JWT + RBAC
+- **存储**：Supabase Storage（推荐）或 MinIO (S3 兼容)
+- **部署**：Vercel（开发/演示）或 Docker Compose → 云服务器（生产）
 - **共享类型**：`packages/shared/` 目录存放前后端共用的 TypeScript 类型、枚举、常量
 
 分三阶段交付（共 12 周），优先打通「合同 → 物流 → 地磅 → 库存 → 质检 → 结算」最小闭环。
